@@ -1,67 +1,92 @@
-import { EmotionType } from '@/app/types';
-import { Ionicons } from '@expo/vector-icons';
-import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useEffect, useRef, useState } from 'react';
+import { useServices } from '@/app/contexts/ServiceContext';
+import { useCallback, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions
 } from 'react-native';
+import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 type CameraState = 'loading' | 'active' | 'error' | 'no-permission';
 
-export default function CameraScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+export default function DrowsinessMonitor() {
+  const { hasPermission, requestPermission } = useCameraPermission();
   const [cameraState, setCameraState] = useState<CameraState>('loading');
-  const [facing, setFacing] = useState<CameraType>('front');
-  const [currentEmotion, setCurrentEmotion] = useState<EmotionType>('neutral'); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [calmnessScore, setCalmnessScore] = useState<number>(75); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [isProcessing, setIsProcessing] = useState<boolean>(false); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const cameraRef = useRef<CameraView>(null);
+  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const [alertnessScore, setAlertnessScore] = useState<number>(100);
+  const [eyeClosureRate, setEyeClosureRate] = useState<number>(0);
+  const [blinkRate, setBlinkRate] = useState<number>(0);
+  const [yawnDetected, setYawnDetected] = useState<boolean>(false);
+  const [headNodding, setHeadNodding] = useState<boolean>(false);
+  const [isSleepy, setIsSleepy] = useState<boolean>(false);
+  const [faceDetected, setFaceDetected] = useState<boolean>(false);
+  const device = useCameraDevice(facing);
+  const { sleepinessDetector, isInitialized, initializationError } = useServices();
+  const lastProcessTime = useRef<number>(0);
+
+  // Process faces detected from frame
+  const processFaces = useCallback(async (faces: any[]) => {
+    if (!sleepinessDetector || !isInitialized) return;
+
+    try {
+      const result = await sleepinessDetector.detectSleepiness(faces);
+      
+      setFaceDetected(faces.length > 0);
+      setAlertnessScore(result.alertnessScore);
+      setEyeClosureRate(result.eyeClosureRate);
+      setBlinkRate(result.blinkRate);
+      setYawnDetected(result.yawnDetected);
+      setHeadNodding(result.headNodding);
+      setIsSleepy(result.isSleepy);
+    } catch (error) {
+      console.error('Error processing faces:', error);
+    }
+  }, [sleepinessDetector, isInitialized]);
+
+  // Frame processor - runs on EVERY frame without blocking!
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    const now = Date.now();
+    
+    // Process every 2 seconds (smooth, no flicker)
+    if (now - lastProcessTime.current < 2000) {
+      return;
+    }
+    
+    lastProcessTime.current = now;
+    
+    // Scan faces in the current frame
+    const faces = scanFaces(frame);
+    
+    // Send to JS thread for processing
+    runOnJS(processFaces)(faces);
+  }, [processFaces]);
 
   useEffect(() => {
     checkCameraPermissions();
-  }, [permission]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasPermission]);
 
   const checkCameraPermissions = async () => {
-    if (permission === null) {
+    if (hasPermission === undefined) {
       setCameraState('loading');
       return;
     }
 
-    if (permission.granted) {
+    if (hasPermission) {
       setCameraState('active');
-    } else if (permission.canAskAgain) {
-      setCameraState('no-permission');
     } else {
-      setCameraState('error');
+      setCameraState('no-permission');
     }
   };
 
   const handleRequestPermission = async () => {
-    try {
-      setCameraState('loading');
-      const result = await requestPermission();
-      
-      if (result.granted) {
-        setCameraState('active');
-      } else {
-        setCameraState('error');
-        Alert.alert(
-          'Camera Permission Required',
-          'CalmCam needs camera access to detect emotions. Please enable camera permissions in your device settings.',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch {
+    setCameraState('loading');
+    const result = await requestPermission();
+    
+    if (result) {
+      setCameraState('active');
+    } else {
       setCameraState('error');
-      Alert.alert('Error', 'Failed to request camera permission. Please try again.');
     }
   };
 
@@ -69,286 +94,192 @@ export default function CameraScreen() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
-  const getEmotionColor = (emotion: EmotionType): string => {
-    const colors = {
-      happy: '#4CAF50',
-      neutral: '#2196F3',
-      sad: '#9C27B0',
-      angry: '#F44336',
-      surprised: '#FF9800',
-    };
-    return colors[emotion];
-  };
-
-  const getCalmnessColor = (score: number): string => {
-    if (score >= 80) return '#4CAF50';
-    if (score >= 60) return '#8BC34A';
-    if (score >= 40) return '#FF9800';
+  const getAlertnessColor = (score: number): string => {
+    if (score >= 70) return '#4CAF50';
+    if (score >= 50) return '#8BC34A';
+    if (score >= 30) return '#FF9800';
     return '#F44336';
   };
 
-  const renderPermissionRequest = () => (
-    <View style={styles.permissionContainer}>
-      <Ionicons name="camera-outline" size={80} color="#4A90E2" />
-      <Text style={styles.permissionTitle}>Camera Access Required</Text>
-      <Text style={styles.permissionText}>
-        CalmCam uses your camera to detect emotions and provide wellness insights.
-        Your data stays private and is processed only on your device.
-      </Text>
-      <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
-        <Text style={styles.permissionButtonText}>Enable Camera</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const getAlertnessStatus = (score: number): string => {
+    if (score >= 70) return 'ALERT';
+    if (score >= 50) return 'NORMAL';
+    if (score >= 30) return 'DROWSY';
+    return 'VERY DROWSY';
+  };
 
-  const renderError = () => (
-    <View style={styles.errorContainer}>
-      <Ionicons name="alert-circle-outline" size={80} color="#F44336" />
-      <Text style={styles.errorTitle}>Camera Unavailable</Text>
-      <Text style={styles.errorText}>
-        Unable to access camera. Please check your device settings and ensure
-        CalmCam has camera permissions enabled.
-      </Text>
-      <TouchableOpacity style={styles.retryButton} onPress={checkCameraPermissions}>
-        <Text style={styles.retryButtonText}>Retry</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  if (cameraState === 'loading' || !device) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A90E2" />
+        <Text style={styles.loadingText}>
+          {!isInitialized ? 'Initializing AI Detection...' : 'Starting Camera...'}
+        </Text>
+      </View>
+    );
+  }
 
-  const renderLoading = () => (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#4A90E2" />
-      <Text style={styles.loadingText}>Initializing Camera...</Text>
-    </View>
-  );
+  if (cameraState === 'no-permission') {
+    return (
+      <View style={styles.permissionContainer}>
+        <Ionicons name="eye-outline" size={80} color="#4A90E2" />
+        <Text style={styles.permissionTitle}>🚀 CalmCam Ready!</Text>
+        <Text style={styles.permissionText}>
+          ✅ Zero-flicker real-time face detection!{'\n\n'}
+          Grant camera permission to start monitoring drowsiness with smooth AI detection.
+        </Text>
+        <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
+          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-  const renderCamera = () => (
-    <View style={styles.cameraContainer}>
-      {/* Top Section - Emotion Display */}
+  if (cameraState === 'error') {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={80} color="#F44336" />
+        <Text style={styles.errorTitle}>Camera Unavailable</Text>
+        <Text style={styles.errorText}>
+          {initializationError || 'Unable to access camera.'}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.monitorContainer}>
+      {/* Camera with frame processor - NO FLICKER! */}
+      <Camera
+        style={styles.camera}
+        device={device}
+        isActive={cameraState === 'active'}
+        frameProcessor={frameProcessor}
+      />
+
+      {/* Top Section - Status */}
       <View style={styles.topSection}>
-        <View style={styles.emotionContainer}>
-          <Text style={styles.emotionLabel}>Current Emotion</Text>
-          <View style={[styles.emotionBadge, { backgroundColor: getEmotionColor(currentEmotion) }]}>
-            <Text style={styles.emotionText}>{currentEmotion.toUpperCase()}</Text>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>Status</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getAlertnessColor(alertnessScore) }]}>
+            <Text style={styles.statusText}>{getAlertnessStatus(alertnessScore)}</Text>
           </View>
         </View>
-        
-        {isProcessing && (
-          <View style={styles.processingIndicator}>
-            <ActivityIndicator size="small" color="#4A90E2" />
-            <Text style={styles.processingText}>Analyzing...</Text>
+      </View>
+
+      {/* Camera Controls */}
+      <View style={styles.cameraControls}>
+        <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
+          <Ionicons name="camera-reverse-outline" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Face Frame Overlay */}
+      <View style={styles.faceOverlay}>
+        <View style={[styles.faceFrame, { borderColor: faceDetected ? '#4CAF50' : '#FF9800' }]} />
+        {!faceDetected && (
+          <View style={styles.noFaceOverlay}>
+            <Ionicons name="person-outline" size={80} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.noFaceText}>No Face Detected</Text>
+            <Text style={styles.noFaceSubtext}>Position your face in the frame</Text>
           </View>
         )}
       </View>
 
-      {/* Camera View */}
-      <View style={styles.cameraViewContainer}>
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing={facing}
-          onCameraReady={() => {
-            console.log('Camera ready');
-            // TODO: Start emotion detection in next task
-          }}
-        >
-          {/* Camera Controls Overlay */}
-          <View style={styles.cameraControls}>
-            <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
-              <Ionicons name="camera-reverse-outline" size={24} color="white" />
-            </TouchableOpacity>
+      {/* Bottom Section - Metrics (only when face detected) */}
+      {faceDetected && (
+        <View style={styles.bottomSection}>
+          <Text style={styles.scoreLabel}>Alertness Score</Text>
+          <View style={[styles.scoreContainer, { borderColor: getAlertnessColor(alertnessScore) }]}>
+            <Text style={[styles.scoreValue, { color: getAlertnessColor(alertnessScore) }]}>
+              {alertnessScore}
+            </Text>
+            <Text style={styles.scoreUnit}>/ 100</Text>
           </View>
 
-          {/* Face Detection Overlay Placeholder */}
-          <View style={styles.faceOverlay}>
-            <View style={styles.faceFrame} />
+          <View style={styles.scoreBar}>
+            <View style={[styles.scoreProgress, {
+              width: `${alertnessScore}%`,
+              backgroundColor: getAlertnessColor(alertnessScore)
+            }]} />
           </View>
-        </CameraView>
-      </View>
 
-      {/* Bottom Section - Calmness Score */}
-      <View style={styles.bottomSection}>
-        <Text style={styles.scoreLabel}>Calmness Score</Text>
-        <View style={[styles.scoreContainer, { borderColor: getCalmnessColor(calmnessScore) }]}>
-          <Text style={[styles.scoreValue, { color: getCalmnessColor(calmnessScore) }]}>
-            {calmnessScore}
-          </Text>
-          <Text style={styles.scoreUnit}>/ 100</Text>
+          {/* Metrics Grid */}
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricCard}>
+              <Ionicons name="eye-outline" size={24} color="#2196F3" />
+              <Text style={styles.metricLabel}>Eye Closure</Text>
+              <Text style={styles.metricValue}>{(eyeClosureRate * 100).toFixed(0)}%</Text>
+            </View>
+
+            <View style={styles.metricCard}>
+              <Ionicons name="flash-outline" size={24} color="#2196F3" />
+              <Text style={styles.metricLabel}>Blink Rate</Text>
+              <Text style={styles.metricValue}>{blinkRate}/min</Text>
+            </View>
+
+            <View style={styles.metricCard}>
+              <Ionicons name={yawnDetected ? 'alert-circle' : 'checkmark-circle-outline'} 
+                size={24} color={yawnDetected ? '#FF9800' : '#4CAF50'} />
+              <Text style={styles.metricLabel}>Yawn</Text>
+              <Text style={styles.metricValue}>{yawnDetected ? 'Yes' : 'No'}</Text>
+            </View>
+
+            <View style={styles.metricCard}>
+              <Ionicons name={headNodding ? 'alert-circle' : 'checkmark-circle-outline'} 
+                size={24} color={headNodding ? '#FF9800' : '#4CAF50'} />
+              <Text style={styles.metricLabel}>Head Nod</Text>
+              <Text style={styles.metricValue}>{headNodding ? 'Yes' : 'No'}</Text>
+            </View>
+          </View>
+
+          {isSleepy && (
+            <View style={styles.alertBanner}>
+              <Ionicons name="warning" size={24} color="#FFF" />
+              <Text style={styles.alertText}>DROWSINESS DETECTED - TAKE A BREAK!</Text>
+            </View>
+          )}
         </View>
-        <View style={styles.scoreBar}>
-          <View 
-            style={[
-              styles.scoreProgress, 
-              { 
-                width: `${calmnessScore}%`,
-                backgroundColor: getCalmnessColor(calmnessScore)
-              }
-            ]} 
-          />
-        </View>
-      </View>
+      )}
     </View>
   );
-
-  // Main render logic based on camera state
-  switch (cameraState) {
-    case 'loading':
-      return renderLoading();
-    case 'no-permission':
-      return renderPermissionRequest();
-    case 'error':
-      return renderError();
-    case 'active':
-      return renderCamera();
-    default:
-      return renderLoading();
-  }
 }
 
 const styles = StyleSheet.create({
-  // Permission Request Styles
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 20,
-  },
-  permissionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginTop: 20,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  permissionText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
-    paddingHorizontal: 20,
-  },
-  permissionButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  permissionButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-
-  // Error State Styles
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#e74c3c',
-    marginTop: 20,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
-    paddingHorizontal: 20,
-  },
-  retryButton: {
-    backgroundColor: '#e74c3c',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-
-  // Loading State Styles
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#7f8c8d',
-  },
-
-  // Camera Interface Styles
-  cameraContainer: {
+  monitorContainer: {
     flex: 1,
     backgroundColor: '#000',
-  },
-  topSection: {
-    backgroundColor: 'rgba(248, 249, 250, 0.95)',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  emotionContainer: {
-    alignItems: 'flex-start',
-  },
-  emotionLabel: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    marginBottom: 5,
-  },
-  emotionBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  emotionText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  processingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  processingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#4A90E2',
-  },
-
-  // Camera View Styles
-  cameraViewContainer: {
-    flex: 1,
-    position: 'relative',
   },
   camera: {
     flex: 1,
   },
+  topSection: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+  },
+  statusContainer: {
+    alignItems: 'center',
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   cameraControls: {
     position: 'absolute',
-    top: 20,
+    top: 60,
     right: 20,
   },
   flipButton: {
@@ -365,14 +296,39 @@ const styles = StyleSheet.create({
   faceFrame: {
     width: 150,
     height: 150,
-    borderWidth: 2,
-    borderColor: 'rgba(74, 144, 226, 0.7)',
+    borderWidth: 3,
     borderRadius: 75,
     backgroundColor: 'transparent',
   },
-
-  // Bottom Section Styles
+  noFaceOverlay: {
+    position: 'absolute',
+    top: -100,
+    left: -75,
+    width: 300,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 30,
+    borderRadius: 20,
+  },
+  noFaceText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 15,
+    textAlign: 'center',
+  },
+  noFaceSubtext: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   bottomSection: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: 'rgba(248, 249, 250, 0.95)',
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -398,19 +354,130 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   scoreUnit: {
-    fontSize: 18,
+    fontSize: 20,
     color: '#7f8c8d',
     marginLeft: 5,
   },
   scoreBar: {
-    width: screenWidth - 40,
+    width: '100%',
     height: 8,
     backgroundColor: '#ecf0f1',
     borderRadius: 4,
     overflow: 'hidden',
+    marginBottom: 20,
   },
   scoreProgress: {
     height: '100%',
     borderRadius: 4,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  metricCard: {
+    width: '48%',
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F44336',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderRadius: 12,
+    marginTop: 15,
+    width: '100%',
+  },
+  alertText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#7f8c8d',
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 30,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginTop: 20,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  permissionButton: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    borderRadius: 25,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 30,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#F44336',
+    marginTop: 20,
+    marginBottom: 15,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    textAlign: 'center',
   },
 });

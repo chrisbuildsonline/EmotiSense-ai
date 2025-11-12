@@ -5,6 +5,18 @@ export class DataManager {
   private static readonly SESSIONS_KEY = 'emotion_sessions';
   private static readonly TRENDS_KEY = 'daily_trends';
 
+  async initialize(): Promise<void> {
+    try {
+      console.log('DataManager: Initializing...');
+      // Test AsyncStorage access
+      await AsyncStorage.getItem('test');
+      console.log('DataManager: Initialization complete');
+    } catch (error) {
+      console.error('DataManager: Failed to initialize:', error);
+      throw error;
+    }
+  }
+
   async saveEmotionSession(session: EmotionSession): Promise<void> {
     try {
       const existingSessions = await this.getEmotionSessions();

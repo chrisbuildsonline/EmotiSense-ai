@@ -13,10 +13,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Camera',
+          title: 'Monitor',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'camera' : 'camera-outline'} 
+              name={focused ? 'eye' : 'eye-outline'} 
               size={24} 
               color={color} 
             />
@@ -26,10 +26,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trends"
         options={{
-          title: 'Trends',
+          title: 'History',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'analytics' : 'analytics-outline'} 
+              name={focused ? 'time' : 'time-outline'} 
               size={24} 
               color={color} 
             />

@@ -1,11 +1,14 @@
 import { useServices } from '@/app/contexts/ServiceContext';
-import { useCallback, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-
-const { width: screenWidth } = Dimensions.get('window');
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 
 type CameraState = 'loading' | 'active' | 'error' | 'no-permission';
 
@@ -21,17 +24,51 @@ export default function DrowsinessMonitor() {
   const [isSleepy, setIsSleepy] = useState<boolean>(false);
   const [faceDetected, setFaceDetected] = useState<boolean>(false);
   const device = useCameraDevice(facing);
+  const cameraRef = useRef<Camera>(null);
   const { sleepinessDetector, isInitialized, initializationError } = useServices();
-  const lastProcessTime = useRef<number>(0);
+  const isProcessingRef = useRef(false);
 
-  // Process faces detected from frame
-  const processFaces = useCallback(async (faces: any[]) => {
-    if (!sleepinessDetector || !isInitialized) return;
+  // Detect faces using ML Kit (called periodically)
+  const detectFaces = useCallback(async () => {
+    if (!cameraRef.current || isProcessingRef.current || !sleepinessDetector || !isInitialized) {
+      return;
+    }
 
     try {
+      isProcessingRef.current = true;
+
+      // Take snapshot without interrupting preview
+      const photo = await cameraRef.current.takePhoto({
+        qualityPrioritization: 'speed',
+        enableShutterSound: false,
+      });
+
+      if (!photo?.path) {
+        setFaceDetected(false);
+        return;
+      }
+
+      // Use ML Kit for face detection
+      const FaceDetection = require('@react-native-ml-kit/face-detection').default;
+      
+      const faces = await FaceDetection.detect(`file://${photo.path}`, {
+        landmarkMode: 'none',
+        contourMode: 'none',
+        classificationMode: 'all',
+        performanceMode: 'fast',
+      });
+
+      if (faces.length === 0) {
+        setFaceDetected(false);
+        const emptyResult = await sleepinessDetector.detectSleepiness([]);
+        setAlertnessScore(emptyResult.alertnessScore);
+        return;
+      }
+
+      // Process with sleepiness detector
       const result = await sleepinessDetector.detectSleepiness(faces);
       
-      setFaceDetected(faces.length > 0);
+      setFaceDetected(true);
       setAlertnessScore(result.alertnessScore);
       setEyeClosureRate(result.eyeClosureRate);
       setBlinkRate(result.blinkRate);
@@ -39,32 +76,29 @@ export default function DrowsinessMonitor() {
       setHeadNodding(result.headNodding);
       setIsSleepy(result.isSleepy);
     } catch (error) {
-      console.error('Error processing faces:', error);
+      console.error('Error detecting faces:', error);
+    } finally {
+      isProcessingRef.current = false;
     }
   }, [sleepinessDetector, isInitialized]);
 
-  // Frame processor - runs on EVERY frame without blocking!
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    const now = Date.now();
-    
-    // Process every 2 seconds (smooth, no flicker)
-    if (now - lastProcessTime.current < 2000) {
-      return;
-    }
-    
-    lastProcessTime.current = now;
-    
-    // Scan faces in the current frame
-    const faces = scanFaces(frame);
-    
-    // Send to JS thread for processing
-    runOnJS(processFaces)(faces);
-  }, [processFaces]);
+  // Run detection loop
+  useEffect(() => {
+    if (cameraState !== 'active' || !isInitialized) return;
+
+    const interval = setInterval(() => {
+      detectFaces();
+    }, 2000); // Every 2 seconds - smooth and efficient
+
+    // Initial detection
+    setTimeout(() => detectFaces(), 1000);
+
+    return () => clearInterval(interval);
+  }, [cameraState, isInitialized, detectFaces]);
 
   useEffect(() => {
     checkCameraPermissions();
-  }, [hasPermission]);
+  }, [checkCameraPermissions, hasPermission]);
 
   const checkCameraPermissions = async () => {
     if (hasPermission === undefined) {
@@ -125,8 +159,8 @@ export default function DrowsinessMonitor() {
         <Ionicons name="eye-outline" size={80} color="#4A90E2" />
         <Text style={styles.permissionTitle}>🚀 CalmCam Ready!</Text>
         <Text style={styles.permissionText}>
-          ✅ Zero-flicker real-time face detection!{'\n\n'}
-          Grant camera permission to start monitoring drowsiness with smooth AI detection.
+          ✅ Smooth, zero-flicker face detection!{'\n\n'}
+          Grant camera permission to start real-time drowsiness monitoring.
         </Text>
         <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
@@ -149,12 +183,14 @@ export default function DrowsinessMonitor() {
 
   return (
     <View style={styles.monitorContainer}>
-      {/* Camera with frame processor - NO FLICKER! */}
+      {/* Vision Camera - stays mounted, no flicker! */}
       <Camera
+        ref={cameraRef}
         style={styles.camera}
         device={device}
-        isActive={cameraState === 'active'}
-        frameProcessor={frameProcessor}
+        isActive={true}
+        photo={true}
+        enableZoomGesture={false}
       />
 
       {/* Top Section - Status */}
@@ -186,7 +222,7 @@ export default function DrowsinessMonitor() {
         )}
       </View>
 
-      {/* Bottom Section - Metrics (only when face detected) */}
+      {/* Bottom Section - Metrics */}
       {faceDetected && (
         <View style={styles.bottomSection}>
           <Text style={styles.scoreLabel}>Alertness Score</Text>

@@ -1,15 +1,19 @@
 import AppBackground from "@/components/AppBackground";
 import { Ionicons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function SettingsScreen() {
   return (
     <AppBackground>
-      <ScrollView style={styles.container}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <Ionicons name="settings" size={60} color="#4A90E2" />
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Configure MotionAI</Text>
+          <Ionicons name="information-circle" size={60} color="#4DD0E1" />
+          <Text style={styles.title}>About</Text>
+          <Text style={styles.subtitle}>MotionAI Information</Text>
         </View>
 
         <View style={styles.section}>
@@ -37,11 +41,21 @@ export default function SettingsScreen() {
 
           <View style={styles.settingCard}>
             <View style={styles.settingHeader}>
-              <Ionicons name="happy-outline" size={24} color="#FF9800" />
+              <Ionicons name="hardware-chip-outline" size={24} color="#FF9800" />
+              <Text style={styles.settingTitle}>Arm-Optimized AI</Text>
+            </View>
+            <Text style={styles.settingDescription}>
+              Powered by Google ML Kit Face Detection running on TensorFlow Lite, optimized for Arm architecture. All AI processing happens on-device for maximum performance and privacy.
+            </Text>
+          </View>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingHeader}>
+              <Ionicons name="happy-outline" size={24} color="#4CAF50" />
               <Text style={styles.settingTitle}>Emotion Detection</Text>
             </View>
             <Text style={styles.settingDescription}>
-              Real-time analysis of facial expressions to detect happy, sad, excited, and neutral emotions.
+              Real-time analysis of facial expressions to detect happy, excited, tired, and neutral emotions using on-device machine learning.
             </Text>
           </View>
         </View>
@@ -76,6 +90,36 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Credits</Text>
+          
+          <View style={styles.settingCard}>
+            <View style={styles.settingHeader}>
+              <Ionicons name="trophy-outline" size={24} color="#FFD700" />
+              <Text style={styles.settingTitle}>ARM AI Developer Hackathon</Text>
+            </View>
+            <Text style={styles.settingDescription}>
+              Built for the ARM AI Developer Hackathon, showcasing on-device AI capabilities for real-time emotion detection.
+            </Text>
+          </View>
+
+          <Pressable 
+            style={styles.settingCard}
+            onPress={() => Linking.openURL('https://x.com/ChrisIsbuilding')}
+          >
+            <View style={styles.settingHeader}>
+              <Ionicons name="logo-twitter" size={24} color="#1DA1F2" />
+              <Text style={styles.settingTitle}>Developer</Text>
+            </View>
+            <Text style={styles.settingDescription}>
+              @ChrisIsbuilding on X
+            </Text>
+            <View style={styles.linkIndicator}>
+              <Ionicons name="open-outline" size={16} color="#4DD0E1" />
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
     </AppBackground>
   );
@@ -84,7 +128,10 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     paddingTop: 60,
+    paddingBottom: 120,
   },
   header: {
     alignItems: "center",
@@ -150,5 +197,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#FFFFFF",
     marginLeft: 12,
+  },
+  linkIndicator: {
+    position: "absolute",
+    top: 20,
+    right: 20,
   },
 });

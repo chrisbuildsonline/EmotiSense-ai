@@ -1,18 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#FFFFFF',
+        tabBarActiveTintColor: '#4DD0E1',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
         headerShown: false,
         tabBarStyle: {
           backgroundColor: 'transparent',
-          borderTopWidth: 0,
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255, 255, 255, 0.05)',
           height: 90,
           paddingBottom: 20,
           paddingTop: 12,
@@ -20,30 +19,6 @@ export default function TabLayout() {
           position: 'absolute',
           elevation: 0,
         },
-        tabBarBackground: () => (
-          <View 
-            style={{ 
-              ...StyleSheet.absoluteFillObject, 
-              overflow: 'hidden',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -10 },
-              shadowOpacity: 0.8,
-              shadowRadius: 20,
-              elevation: 30,
-            }}
-          >
-            <LinearGradient
-              colors={['rgba(12, 30, 47, 0.98)', 'rgba(10, 20, 35, 0.98)', 'rgba(8, 13, 25, 0.98)']}
-              style={StyleSheet.absoluteFillObject}
-            />
-            <View
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-              }}
-            />
-          </View>
-        ),
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
@@ -71,10 +46,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: 'About',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'settings' : 'settings-outline'} 
+              name={focused ? 'information-circle' : 'information-circle-outline'} 
               size={26} 
               color={color} 
             />

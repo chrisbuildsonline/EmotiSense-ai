@@ -1,48 +1,31 @@
-
-export interface FaceFeature {
-  bounds?: {
-    origin: { x: number; y: number };
-    size: { width: number; height: number };
-  };
-  frame?: {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  };
-  rollAngle?: number;
-  yawAngle?: number;
-  rotationX?: number;
-  rotationY?: number;
-  rotationZ?: number;
-  smilingProbability?: number;
-  leftEyeOpenProbability?: number;
-  rightEyeOpenProbability?: number;
-  landmarks?: {
-    mouthLeft?: { position: { x: number; y: number } };
-    mouthRight?: { position: { x: number; y: number } };
-    mouthBottom?: { position: { x: number; y: number } };
-  };
-  leftMouthPosition?: { x: number; y: number };
-  rightMouthPosition?: { x: number; y: number };
-  bottomMouthPosition?: { x: number; y: number };
-  faceID?: number;
-}
+import {
+    DrowsinessDetector,
+    EmotionClassifier,
+    EyeDetector,
+    HeadMovementDetector,
+    SmileDetector,
+    type EmotionType,
+    type FaceFeature
+} from '../lib/detectors';
 
 export interface EmotionResult {
-  emotion: 'happy' | 'sad' | 'excited' | 'neutral';
+  emotion: EmotionType;
   confidence: number;
   smileIntensity: number;
   energyLevel: number;
   headMovement: number;
+  eyesClosed: boolean;
+  eyeClosureRate: number;
+  drowsinessLevel: number;
+  blinkRate: number;
   timestamp: number;
 }
 
 export interface EmotionStats {
   happyCount: number;
-  sadCount: number;
   excitedCount: number;
   neutralCount: number;
+  tiredCount: number;
   totalDetections: number;
   averageSmile: number;
   averageEnergy: number;
@@ -56,8 +39,20 @@ export class EmotionDetector {
   private emotionHistory: EmotionResult[] = [];
   private readonly EMOTION_HISTORY_SIZE = 100;
   
-  private headPoseHistory: { pitch: number; yaw: number; timestamp: number }[] = [];
-  private readonly HEAD_POSE_HISTORY_SIZE = 10;
+  // Detection modules
+  private eyeDetector: EyeDetector;
+  private headMovementDetector: HeadMovementDetector;
+  private smileDetector: SmileDetector;
+  private drowsinessDetector: DrowsinessDetector;
+  private emotionClassifier: EmotionClassifier;
+
+  constructor() {
+    this.eyeDetector = new EyeDetector();
+    this.headMovementDetector = new HeadMovementDetector();
+    this.smileDetector = new SmileDetector();
+    this.drowsinessDetector = new DrowsinessDetector();
+    this.emotionClassifier = new EmotionClassifier();
+  }
 
   async initialize(): Promise<void> {
     try {
@@ -89,18 +84,38 @@ export class EmotionDetector {
 
     const face = faces[0];
     
-    const smileIntensity = face.smilingProbability ?? 0;
-    const headMovement = this.analyzeHeadMovement(face, now);
-    const energyLevel = this.calculateEnergyLevel(smileIntensity, headMovement);
+    // Use detection modules
+    const smileResult = this.smileDetector.analyzeSmile(face);
+    const eyeResult = this.eyeDetector.analyzeEyeClosure(face);
+    const headResult = this.headMovementDetector.analyzeHeadMovement(face, now);
+    const drowsinessResult = this.drowsinessDetector.calculateDrowsiness(
+      eyeResult.eyeClosureRate,
+      headResult.headMovement
+    );
     
-    const { emotion, confidence } = this.classifyEmotion(smileIntensity, energyLevel, headMovement);
+    const energyLevel = this.calculateEnergyLevel(
+      smileResult.smileIntensity,
+      headResult.headMovement,
+      eyeResult.eyeClosureRate
+    );
+    
+    const emotionResult = this.emotionClassifier.classifyEmotion(
+      smileResult.smileIntensity,
+      energyLevel,
+      headResult.headMovement,
+      eyeResult.eyesClosed
+    );
     
     const result: EmotionResult = {
-      emotion,
-      confidence,
-      smileIntensity,
+      emotion: emotionResult.emotion,
+      confidence: emotionResult.confidence,
+      smileIntensity: smileResult.smileIntensity,
       energyLevel,
-      headMovement,
+      headMovement: headResult.headMovement,
+      eyesClosed: eyeResult.eyesClosed,
+      eyeClosureRate: eyeResult.eyeClosureRate,
+      drowsinessLevel: drowsinessResult.drowsinessLevel,
+      blinkRate: eyeResult.blinkRate,
       timestamp: now,
     };
     
@@ -112,61 +127,19 @@ export class EmotionDetector {
     return result;
   }
 
-  private analyzeHeadMovement(face: FaceFeature, now: number): number {
-    const pitchAngle = face.rotationX ?? 0;
-    const yawAngle = face.rotationY ?? face.yawAngle ?? 0;
-    
-    this.headPoseHistory.push({ pitch: pitchAngle, yaw: yawAngle, timestamp: now });
-    if (this.headPoseHistory.length > this.HEAD_POSE_HISTORY_SIZE) {
-      this.headPoseHistory.shift();
-    }
-    
-    if (this.headPoseHistory.length < 3) {
-      return 0;
-    }
-    
-    const pitchAngles = this.headPoseHistory.map(h => h.pitch);
-    const yawAngles = this.headPoseHistory.map(h => h.yaw);
-    
-    const pitchRange = Math.max(...pitchAngles) - Math.min(...pitchAngles);
-    const yawRange = Math.max(...yawAngles) - Math.min(...yawAngles);
-    
-    const totalMovement = (pitchRange + yawRange) / 2;
-    
-    return Math.min(100, totalMovement * 2);
-  }
-
-  private calculateEnergyLevel(smileIntensity: number, headMovement: number): number {
-    return Math.round((smileIntensity * 60 + headMovement * 40));
-  }
-
-  private classifyEmotion(
-    smileIntensity: number,
-    energyLevel: number,
-    headMovement: number
-  ): { emotion: 'happy' | 'sad' | 'excited' | 'neutral'; confidence: number } {
-    if (smileIntensity > 0.6 && energyLevel > 60) {
-      return { emotion: 'excited', confidence: Math.min(95, smileIntensity * 100) };
-    }
-    
-    if (smileIntensity > 0.4) {
-      return { emotion: 'happy', confidence: Math.min(90, smileIntensity * 100) };
-    }
-    
-    if (smileIntensity < 0.2 && energyLevel < 30) {
-      return { emotion: 'sad', confidence: Math.min(85, (1 - smileIntensity) * 80) };
-    }
-    
-    return { emotion: 'neutral', confidence: 70 };
+  private calculateEnergyLevel(smileIntensity: number, headMovement: number, eyeClosureRate: number): number {
+    // Reduce energy if eyes are closing
+    const eyeOpenFactor = 1 - eyeClosureRate;
+    return Math.round((smileIntensity * 40 + headMovement * 30 + eyeOpenFactor * 30) * 100);
   }
 
   getStats(): EmotionStats {
     if (this.emotionHistory.length === 0) {
       return {
         happyCount: 0,
-        sadCount: 0,
         excitedCount: 0,
         neutralCount: 0,
+        tiredCount: 0,
         totalDetections: 0,
         averageSmile: 0,
         averageEnergy: 0,
@@ -182,9 +155,9 @@ export class EmotionDetector {
       },
       {
         happyCount: 0,
-        sadCount: 0,
         excitedCount: 0,
         neutralCount: 0,
+        tiredCount: 0,
         totalSmile: 0,
         totalEnergy: 0,
       }
@@ -192,9 +165,9 @@ export class EmotionDetector {
 
     return {
       happyCount: stats.happyCount,
-      sadCount: stats.sadCount,
       excitedCount: stats.excitedCount,
       neutralCount: stats.neutralCount,
+      tiredCount: stats.tiredCount,
       totalDetections: this.emotionHistory.length,
       averageSmile: Math.round((stats.totalSmile / this.emotionHistory.length) * 100),
       averageEnergy: Math.round(stats.totalEnergy / this.emotionHistory.length),
@@ -211,6 +184,10 @@ export class EmotionDetector {
       smileIntensity: 0,
       energyLevel: 0,
       headMovement: 0,
+      eyesClosed: false,
+      eyeClosureRate: 0,
+      drowsinessLevel: 0,
+      blinkRate: 0,
       timestamp: Date.now(),
     };
   }
@@ -222,6 +199,10 @@ export class EmotionDetector {
       smileIntensity: 0,
       energyLevel: 0,
       headMovement: 0,
+      eyesClosed: false,
+      eyeClosureRate: 0,
+      drowsinessLevel: 0,
+      blinkRate: 0,
       timestamp: Date.now(),
     };
   }
@@ -232,7 +213,9 @@ export class EmotionDetector {
 
   reset(): void {
     this.emotionHistory = [];
-    this.headPoseHistory = [];
+    this.eyeDetector.reset();
+    this.headMovementDetector.reset();
+    this.smileDetector.reset();
   }
 
   dispose(): void {

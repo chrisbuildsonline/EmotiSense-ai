@@ -10,15 +10,15 @@ export default function AppBackground({ children }: AppBackgroundProps) {
   return (
     <LinearGradient
       colors={[
-        "#020508",
-        "#040710",
-        "#060B1A",
-        "#080D20",
-        "#0A0E27",
-        "#0B1629",
-        "#0C1E2F",
-        "#0D2635",
-        "#0D2A3A",
+        "#2E3440",
+        "#2C3240",
+        "#2A3040",
+        "#282E40",
+        "#262C40",
+        "#252B3E",
+        "#24293C",
+        "#23283A",
+        "#222638",
       ]}
       locations={[0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]}
       style={styles.container}

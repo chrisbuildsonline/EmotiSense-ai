@@ -2,21 +2,21 @@ import AppBackground from "@/components/AppBackground";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    Easing,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Easing,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import {
-    Camera,
-    useCameraDevice,
-    useCameraPermission,
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
 } from "react-native-vision-camera";
 import { useServices } from "../../contexts/ServiceContext";
-import type { EmotionResult, EmotionStats } from "../../services/EmotionDetector";
+import type { EmotionResult } from "../../services/EmotionDetector";
 
 const { width } = Dimensions.get("window");
 
@@ -75,7 +75,6 @@ function LoadingDots() {
 export default function HomeScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const [currentEmotion, setCurrentEmotion] = useState<EmotionResult | null>(null);
-  const [stats, setStats] = useState<EmotionStats | null>(null);
   const [faceDetected, setFaceDetected] = useState<boolean>(false);
   const device = useCameraDevice("front");
   const cameraRef = useRef<Camera>(null);
@@ -145,10 +144,16 @@ export default function HomeScreen() {
 
       setFaceDetected(true);
       const result = await emotionDetector.detectEmotion(faces);
-      setCurrentEmotion(result);
       
-      const currentStats = emotionDetector.getStats();
-      setStats(currentStats);
+      // Debug logging
+      console.log('🎭 EMOTION DETECTION:', {
+        emotion: result.emotion,
+        smileIntensity: result.smileIntensity.toFixed(4),
+        energyLevel: result.energyLevel,
+        confidence: result.confidence,
+      });
+      
+      setCurrentEmotion(result);
     } catch (error: any) {
       if (error?.message?.includes("Camera is closed")) {
         return;
@@ -175,8 +180,8 @@ export default function HomeScreen() {
   const getEmotionEmoji = (emotion: string): string => {
     switch (emotion) {
       case 'happy': return '😊';
-      case 'sad': return '😢';
       case 'excited': return '🤩';
+      case 'tired': return '😴';
       default: return '😐';
     }
   };
@@ -184,8 +189,8 @@ export default function HomeScreen() {
   const getEmotionColor = (emotion: string): string => {
     switch (emotion) {
       case 'happy': return '#4CAF50';
-      case 'sad': return '#2196F3';
       case 'excited': return '#FF9800';
+      case 'tired': return '#9C27B0';
       default: return '#9E9E9E';
     }
   };
@@ -245,7 +250,7 @@ export default function HomeScreen() {
                 {currentEmotion ? getEmotionEmoji(currentEmotion.emotion) : '😐'}
               </Text>
               <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                <Text style={[styles.emotionLabel, { color: currentEmotion ? getEmotionColor(currentEmotion.emotion) : '#9E9E9E' }]}>
+                <Text style={styles.emotionLabel}>
                   {currentEmotion?.emotion.toUpperCase() || 'NEUTRAL'}
                 </Text>
               </Animated.View>
@@ -254,64 +259,93 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View style={styles.metricsContainer}>
-              <View style={styles.metricCard}>
-                <Ionicons name="happy" size={24} color="#4A90E2" />
-                <Text style={styles.metricValue}>
-                  {currentEmotion ? `${Math.round(currentEmotion.smileIntensity * 100)}%` : '0%'}
-                </Text>
-                <Text style={styles.metricLabel}>Smile</Text>
-              </View>
+            <View style={styles.detailedMetricsContainer}>
+              <Text style={styles.metricsTitle}>Motion Tracking</Text>
               
-              <View style={styles.metricCard}>
-                <Ionicons name="flash" size={24} color="#FF9800" />
-                <Text style={styles.metricValue}>
-                  {currentEmotion ? `${currentEmotion.energyLevel}%` : '0%'}
-                </Text>
-                <Text style={styles.metricLabel}>Energy</Text>
-              </View>
-              
-              <View style={styles.metricCard}>
-                <Ionicons name="move" size={24} color="#4CAF50" />
-                <Text style={styles.metricValue}>
-                  {currentEmotion ? `${Math.round(currentEmotion.headMovement)}%` : '0%'}
-                </Text>
-                <Text style={styles.metricLabel}>Movement</Text>
-              </View>
-            </View>
-
-            {stats && stats.totalDetections > 0 && (
-              <View style={styles.statsContainer}>
-                <Text style={styles.statsTitle}>Session Stats</Text>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statEmoji}>😊</Text>
-                    <Text style={styles.statValue}>{stats.happyCount}</Text>
-                    <Text style={styles.statLabel}>Happy</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statEmoji}>😢</Text>
-                    <Text style={styles.statValue}>{stats.sadCount}</Text>
-                    <Text style={styles.statLabel}>Sad</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statEmoji}>🤩</Text>
-                    <Text style={styles.statValue}>{stats.excitedCount}</Text>
-                    <Text style={styles.statLabel}>Excited</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statEmoji}>😐</Text>
-                    <Text style={styles.statValue}>{stats.neutralCount}</Text>
-                    <Text style={styles.statLabel}>Neutral</Text>
-                  </View>
+              <View style={styles.metricRow}>
+                <View style={styles.metricRowLeft}>
+                  <Ionicons name="happy-outline" size={20} color="#FFD700" />
+                  <Text style={styles.metricRowLabel}>Smile Intensity</Text>
                 </View>
-                <View style={styles.averagesContainer}>
-                  <Text style={styles.averageText}>
-                    Avg Smile: {stats.averageSmile}% • Avg Energy: {stats.averageEnergy}%
+                <View style={styles.metricRowRight}>
+                  <View style={styles.activityBar}>
+                    <View 
+                      style={[
+                        styles.activityBarFill, 
+                        { 
+                          width: `${currentEmotion ? Math.round(currentEmotion.smileIntensity * 100) : 0}%`,
+                          backgroundColor: currentEmotion && currentEmotion.smileIntensity > 0.5 ? '#4CAF50' : currentEmotion && currentEmotion.smileIntensity > 0.25 ? '#FFD700' : '#9E9E9E'
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={[styles.metricRowValue, { marginLeft: 8 }]}>
+                    {currentEmotion ? `${Math.round(currentEmotion.smileIntensity * 100)}%` : '0%'}
                   </Text>
                 </View>
               </View>
-            )}
+
+              <View style={styles.metricRow}>
+                <View style={styles.metricRowLeft}>
+                  <Ionicons name="swap-vertical" size={20} color="#4A90E2" />
+                  <Text style={styles.metricRowLabel}>Head Nodding</Text>
+                </View>
+                <View style={styles.metricRowRight}>
+                  <View style={[styles.indicator, { backgroundColor: currentEmotion && currentEmotion.headMovement > 30 ? '#4CAF50' : '#9E9E9E' }]} />
+                  <Text style={styles.metricRowValue}>
+                    {currentEmotion && currentEmotion.headMovement > 30 ? 'Active' : 'Stable'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.metricRow}>
+                <View style={styles.metricRowLeft}>
+                  <Ionicons name="trending-up" size={20} color="#FF9800" />
+                  <Text style={styles.metricRowLabel}>Movement Rate</Text>
+                </View>
+                <View style={styles.metricRowRight}>
+                  <Text style={styles.metricRowValue}>
+                    {currentEmotion ? `${Math.round(currentEmotion.headMovement)}%` : '0%'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.metricRow}>
+                <View style={styles.metricRowLeft}>
+                  <Ionicons name="eye-off" size={20} color="#2196F3" />
+                  <Text style={styles.metricRowLabel}>Eyes Closed</Text>
+                </View>
+                <View style={styles.metricRowRight}>
+                  <View style={[styles.indicator, { backgroundColor: currentEmotion && currentEmotion.eyesClosed ? '#F44336' : '#4CAF50' }]} />
+                  <Text style={styles.metricRowValue}>
+                    {currentEmotion && currentEmotion.eyesClosed ? 'Yes' : 'No'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.metricRow}>
+                <View style={styles.metricRowLeft}>
+                  <Ionicons name="bed" size={20} color="#9C27B0" />
+                  <Text style={styles.metricRowLabel}>Drowsiness</Text>
+                </View>
+                <View style={styles.metricRowRight}>
+                  <View style={styles.activityBar}>
+                    <View 
+                      style={[
+                        styles.activityBarFill, 
+                        { 
+                          width: `${currentEmotion ? currentEmotion.drowsinessLevel : 0}%`,
+                          backgroundColor: currentEmotion && currentEmotion.drowsinessLevel > 70 ? '#F44336' : currentEmotion && currentEmotion.drowsinessLevel > 40 ? '#FF9800' : '#4CAF50'
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={[styles.metricRowValue, { marginLeft: 8 }]}>
+                    {currentEmotion ? `${currentEmotion.drowsinessLevel}%` : '0%'}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </>
         )}
       </View>
@@ -347,7 +381,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   emotionEmoji: {
-    fontSize: 80,
+    fontSize: 140,
     marginBottom: 15,
   },
   emotionLabel: {
@@ -355,6 +389,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontFamily: "Playfair-Bold",
     letterSpacing: 2,
+    color: "#FFFFFF"
   },
   confidenceText: {
     fontSize: 14,
@@ -384,49 +419,61 @@ const styles = StyleSheet.create({
     color: "#9bb2c974",
     marginTop: 5,
   },
-  statsContainer: {
+  detailedMetricsContainer: {
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 20,
     padding: 20,
   },
-  statsTitle: {
+  metricsTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#FFFFFF",
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: "center",
   },
-  statsGrid: {
+  metricRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 15,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
-  statItem: {
+  metricRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  metricRowLabel: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    marginLeft: 10,
+  },
+  metricRowRight: {
+    flexDirection: "row",
     alignItems: "center",
   },
-  statEmoji: {
-    fontSize: 32,
-    marginBottom: 5,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "bold",
+  metricRowValue: {
+    fontSize: 14,
+    fontWeight: "600",
     color: "#FFFFFF",
   },
-  statLabel: {
-    fontSize: 11,
-    color: "#9bb2c974",
-    marginTop: 3,
+  indicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
   },
-  averagesContainer: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    paddingTop: 15,
-    alignItems: "center",
+  activityBar: {
+    width: 80,
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 3,
+    overflow: "hidden",
   },
-  averageText: {
-    fontSize: 13,
-    color: "#9bb2c974",
+  activityBarFill: {
+    height: "100%",
+    borderRadius: 3,
   },
   faceIndicator: {
     position: "absolute",

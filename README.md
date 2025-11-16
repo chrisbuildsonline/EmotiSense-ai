@@ -1,10 +1,10 @@
-# MotionAI
+# EmotiSense AI
 
 Real-time emotion tracking powered by on-device AI. Built for the Arm AI Developer Challenge 2025.
 
 ## What it does
 
-MotionAI analyzes your facial expressions in real-time to detect emotions: happy, excited, tired, and neutral. It tracks smile intensity, energy levels, head movement, and drowsiness - all processed locally on your device using Arm-optimized AI.
+EmotiSense AI analyzes your facial expressions in real-time to detect emotions: happy, excited, tired, and neutral. It tracks smile intensity, energy levels, head movement, and drowsiness - all processed locally on your device using Arm-optimized AI.
 
 ## Why Arm?
 

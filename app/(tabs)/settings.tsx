@@ -13,11 +13,11 @@ export default function SettingsScreen() {
         <View style={styles.header}>
           <Ionicons name="information-circle" size={60} color="#4DD0E1" />
           <Text style={styles.title}>About</Text>
-          <Text style={styles.subtitle}>MotionAI Information</Text>
+          <Text style={styles.subtitle}>EmotiSense AI Information</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About MotionAI</Text>
+          <Text style={styles.sectionTitle}>About EmotiSense AI</Text>
           
           <View style={styles.settingCard}>
             <View style={styles.settingHeader}>
@@ -25,7 +25,7 @@ export default function SettingsScreen() {
               <Text style={styles.settingTitle}>Version</Text>
             </View>
             <Text style={styles.settingDescription}>
-              MotionAI v1.0.0
+              EmotiSense AI v1.0.0
             </Text>
           </View>
 

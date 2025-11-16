@@ -208,7 +208,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.permissionContainer}>
         <Ionicons name="happy-outline" size={80} color="#4A90E2" />
-        <Text style={styles.permissionTitle}>MotionAI</Text>
+        <Text style={styles.permissionTitle}>EmotiSense AI</Text>
         <Text style={styles.permissionText}>
           Analyze your emotions and motion patterns with real-time AI detection.
         </Text>

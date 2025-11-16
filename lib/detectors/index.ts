@@ -1,5 +1,5 @@
 /**
- * MotionAI Detection Library
+ * EmotiSense AI Detection Library
  * Centralized exports for all detection modules
  */
 

@@ -2,12 +2,12 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: "MotionAI",
-    slug: "motion-ai",
+    name: "EmotiSense AI",
+    slug: "emotisense-ai",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "motionai",
+    scheme: "emotisense",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
@@ -15,7 +15,7 @@ export default {
       infoPlist: {
         NSCameraUsageDescription: "$(PRODUCT_NAME) needs camera access to analyze your emotions and motion patterns."
       },
-      bundleIdentifier: process.env.IOS_BUNDLE_ID || "com.yourcompany.motionai"
+      bundleIdentifier: process.env.IOS_BUNDLE_ID || "com.yourcompany.emotisense"
     },
     android: {
       adaptiveIcon: {
@@ -30,7 +30,7 @@ export default {
         "android.permission.CAMERA",
         "android.permission.WRITE_SETTINGS"
       ],
-      package: process.env.ANDROID_PACKAGE || "com.yourcompany.motionai"
+      package: process.env.ANDROID_PACKAGE || "com.yourcompany.emotisense"
     },
     web: {
       output: "static",

@@ -7,6 +7,13 @@ node_modules/
 .expo/
 dist/
 web-build/
+
+# Environment variables (contains sensitive info)
+.env.local
+.env.*.local
+
+# Keep app.json out of git (use app.config.js instead)
+app.json
 expo-env.d.ts
 
 # Native

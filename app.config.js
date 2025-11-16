@@ -1,0 +1,74 @@
+import 'dotenv/config';
+
+export default {
+  expo: {
+    name: "MotionAI",
+    slug: "motion-ai",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/images/icon.png",
+    scheme: "motionai",
+    userInterfaceStyle: "automatic",
+    newArchEnabled: true,
+    ios: {
+      supportsTablet: true,
+      infoPlist: {
+        NSCameraUsageDescription: "$(PRODUCT_NAME) needs camera access to analyze your emotions and motion patterns."
+      },
+      bundleIdentifier: process.env.IOS_BUNDLE_ID || "com.yourcompany.motionai"
+    },
+    android: {
+      adaptiveIcon: {
+        backgroundColor: "#E6F4FE",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundImage: "./assets/images/android-icon-background.png",
+        monochromeImage: "./assets/images/android-icon-monochrome.png"
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      permissions: [
+        "android.permission.CAMERA",
+        "android.permission.WRITE_SETTINGS"
+      ],
+      package: process.env.ANDROID_PACKAGE || "com.yourcompany.motionai"
+    },
+    web: {
+      output: "static",
+      favicon: "./assets/images/favicon.png"
+    },
+    plugins: [
+      "expo-router",
+      [
+        "react-native-vision-camera",
+        {
+          cameraPermissionText: "$(PRODUCT_NAME) needs camera access to analyze your emotions and motion patterns.",
+          enableMicrophonePermission: false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash-icon.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#ffffff",
+          dark: {
+            backgroundColor: "#000000"
+          }
+        }
+      ],
+      "expo-audio",
+      "expo-brightness"
+    ],
+    experiments: {
+      typedRoutes: true,
+      reactCompiler: true
+    },
+    extra: {
+      router: {},
+      eas: {
+        projectId: process.env.EAS_PROJECT_ID
+      }
+    }
+  }
+};

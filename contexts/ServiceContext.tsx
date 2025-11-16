@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { SleepinessDetector } from '../services/SleepinessDetector';
+import { EmotionDetector } from '../services/EmotionDetector';
 
 interface ServiceContextType {
-  sleepinessDetector: SleepinessDetector | null;
+  emotionDetector: EmotionDetector | null;
   isInitialized: boolean;
   initializationError: string | null;
 }
 
 const ServiceContext = createContext<ServiceContextType>({
-  sleepinessDetector: null,
+  emotionDetector: null,
   isInitialized: false,
   initializationError: null,
 });
@@ -26,7 +26,7 @@ interface ServiceProviderProps {
 }
 
 export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) => {
-  const [sleepinessDetector, setSleepinessDetector] = useState<SleepinessDetector | null>(null);
+  const [emotionDetector, setEmotionDetector] = useState<EmotionDetector | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
 
@@ -36,14 +36,14 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
 
   const initializeServices = async () => {
     try {
-      console.log('ServiceContext: Initializing sleepiness detector...');
+      console.log('ServiceContext: Initializing emotion detector...');
       
-      const detectorInstance = new SleepinessDetector();
+      const detectorInstance = new EmotionDetector();
       await detectorInstance.initialize();
-      setSleepinessDetector(detectorInstance);
+      setEmotionDetector(detectorInstance);
       
       setIsInitialized(true);
-      console.log('ServiceContext: Sleepiness detector initialized successfully');
+      console.log('ServiceContext: Emotion detector initialized successfully');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
       console.error('ServiceContext: Failed to initialize:', errorMessage);
@@ -52,7 +52,7 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
   };
 
   const contextValue: ServiceContextType = {
-    sleepinessDetector,
+    emotionDetector,
     isInitialized,
     initializationError,
   };

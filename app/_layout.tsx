@@ -1,21 +1,34 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ServiceProvider } from './contexts/ServiceContext';
+import { ServiceProvider } from '../contexts/ServiceContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  
+  const [fontsLoaded] = useFonts({
+    'Playfair': require('../assets/fonts/PlayfairDisplay-Regular.ttf'),
+    'Playfair-Bold': require('../assets/fonts/PlayfairDisplay-Bold.ttf'),
+    'Playfair-Italic': require('../assets/fonts/PlayfairDisplay-Italic.ttf'),
+  });
 
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <ServiceProvider>

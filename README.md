@@ -1,6 +1,8 @@
 # EmotiSense AI
 
-Real-time emotion tracking powered by on-device AI. Built for the Arm AI Developer Challenge 2025.
+Real-time emotion tracking powered by on-device AI. 
+
+<img width="300" height="700" alt="image" src="https://github.com/user-attachments/assets/9ae03dff-33d5-4125-abee-e90681bd0f7d" />
 
 ## What it does
 

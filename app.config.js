@@ -13,7 +13,8 @@ export default {
     ios: {
       supportsTablet: true,
       infoPlist: {
-        NSCameraUsageDescription: "$(PRODUCT_NAME) needs camera access to analyze your emotions and motion patterns."
+        NSCameraUsageDescription: "$(PRODUCT_NAME) needs camera access to analyze your emotions and motion patterns.",
+        ITSAppUsesNonExemptEncryption: false
       },
       bundleIdentifier: process.env.IOS_BUNDLE_ID || "com.yourcompany.emotisense"
     },
@@ -57,6 +58,14 @@ export default {
           }
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            deploymentTarget: "16.0"
+          }
+        }
+      ],
       "expo-audio",
       "expo-brightness"
     ],
@@ -67,7 +76,7 @@ export default {
     extra: {
       router: {},
       eas: {
-        projectId: process.env.EAS_PROJECT_ID
+        projectId: process.env.EAS_PROJECT_ID || "f02662e4-e155-4565-bc26-680a1a09a373"
       }
     }
   }
